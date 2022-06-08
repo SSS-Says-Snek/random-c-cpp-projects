@@ -3,6 +3,31 @@
 
 #define get_nested_list(list, i, j) PyList_GetItem(PyList_GetItem(list, i), j)
 
+int _check_matrix_dimensions(PyObject *matrix_a, PyObject *matrix_b) {
+    Py_ssize_t matrix_a_height = PyList_Size(matrix_a);
+    Py_ssize_t matrix_b_height = PyList_Size(matrix_b);
+
+    for (Py_ssize_t i = 0; i < matrix_a_height; i++) {
+        if (PyList_Size(PyList_GetItem(matrix_a, i)) != matrix_a_height) {
+            PyErr_SetString(PyExc_ValueError, "argument 1 matrix is not a square matrix");
+            return -1;
+        }
+    }
+
+    for (Py_ssize_t i = 0; i < matrix_b_height; i++) {
+        if (PyList_Size(PyList_GetItem(matrix_b, i)) != matrix_b_height) {
+            PyErr_SetString(PyExc_ValueError, "argument 2 matrix is not a square matrix");
+            return -1;
+        }
+    }
+
+    if (matrix_a_height != matrix_b_height) {
+        PyErr_SetString(PyExc_ValueError, "matrices do not have same dimensions");
+        return -1;
+    }
+    return 0;
+}
+
 long *_nested_list_to_pointer(PyObject *list) {
     Py_ssize_t list_size = PyList_Size(list);
     long *array_pointer = malloc((list_size * list_size) * sizeof(long));
@@ -80,6 +105,22 @@ static PyObject *test_list(PyObject *self, PyObject *args) {
     return PyLong_FromLong(total);
 }
 
+static PyObject *test_exception(PyObject *self, PyObject *args) {
+    double dividend;
+    double divisor;
+
+    if (!PyArg_ParseTuple(args, "dd", &dividend, &divisor)) {
+        return NULL;
+    }
+
+    if (divisor == 0) {
+        PyErr_SetString(PyExc_ZeroDivisionError, "division by zero");
+        return NULL;
+    }
+
+    return PyFloat_FromDouble(dividend / divisor);
+}
+
 static PyObject *matrix_multiplication(PyObject *self, PyObject *args, PyObject *kwargs) {
     PyObject *matrix_a;
     PyObject *matrix_b;
@@ -90,6 +131,11 @@ static PyObject *matrix_multiplication(PyObject *self, PyObject *args, PyObject 
         args, kwargs, "OO", kwlist,
         &matrix_a, &matrix_b
     )) {
+        return NULL;
+    }
+
+    int result = _check_matrix_dimensions(matrix_a, matrix_b);
+    if (result == -1) {
         return NULL;
     }
 
@@ -106,7 +152,7 @@ static PyObject *matrix_multiplication(PyObject *self, PyObject *args, PyObject 
 
     for (Py_ssize_t i = 0; i < n; i++) {
         for (Py_ssize_t j = 0; j < n; j++) {
-            for (int k = 0; k < n; k++) {
+            for (Py_ssize_t k = 0; k < n; k++) {
                 computational_array[i * n + j] += (matrix_a_pointer[i * n + k] * matrix_b_pointer[k * n + j]);
             }
         }
@@ -133,12 +179,24 @@ static PyObject *matrix_multiplication(PyObject *self, PyObject *args, PyObject 
     return output_matrix;
 }
 
+// DOCSTRINGS
+
+PyDoc_STRVAR(
+    matrix_multiplication_doc,
+    "matrix_multiplication(matrix_a: list, matrix_b: list) -> list[list[int]]\n"
+    "\n"
+    "    Multiplies two 2D lists. Matrices must both be of size NxN."
+);
+
+// Method and module defs
+
 static PyMethodDef test_thing_methods[] = {
     {"test_thing", test_thing, METH_VARARGS, "Random docstring LLLLL"},
     {"add_for", add_for, METH_VARARGS, "So it adds....."},
     {"test_keywords", test_keywords, METH_VARARGS | METH_KEYWORDS, "Tests out keyword arg support"},
     {"test_list", test_list, METH_VARARGS, "Tests out (nested) list support"},
-    {"matrix_multiplication", matrix_multiplication, METH_VARARGS | METH_KEYWORDS, "Please worke"},
+    {"test_exception", test_exception, METH_VARARGS, "Tests out Python exceptions in C"},
+    {"matrix_multiplication", matrix_multiplication, METH_VARARGS | METH_KEYWORDS, matrix_multiplication_doc},
     {NULL, NULL, 0, NULL}
 };
 
