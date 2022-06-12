@@ -8,42 +8,8 @@
 
 const int SOLID_TILES = {1};
 
-void PriorityQueue_put(PriorityQueue *queue, AlgoQueueInfo algo_queue_info) {
-    if (queue->size + 1 > queue->max_size) {
-        queue->max_size *= 2;
-
-        queue->queue = realloc(queue->queue, queue->max_size * sizeof(AlgoQueueInfo));
-    }
-    
-    int i = queue->size - 1;
-    int f_score = algo_queue_info.f_score;
-
-    while (i >= 0 && (f_score >= queue->queue[i].f_score || f_score == -1)) {
-        queue->queue[i + 1] = queue->queue[i];
-        i--;
-    }
-
-    queue->queue[i + 1] = algo_queue_info;
-    queue->size++;
-}
-
-AlgoQueueInfo PriorityQueue_pop(PriorityQueue *queue) {
-    // No handling for when queue is empty!! will implement very soon, but sleep
-
-    AlgoQueueInfo result = queue->queue[queue->size - 1];
-
-    queue->size--;
-
-    if (queue->size > 0 && queue->max_size / queue->size == 2) {
-        queue->queue = realloc(queue->queue, queue->size * sizeof(AlgoQueueInfo));
-        queue->max_size /= 2;
-    }
-
-    return result;
-}
-
 int check_list_square(PyObject *list) {
-    if (!PyList_Check(list)) {
+    if (!PyList_CheckExact(list)) {
         return 1;
     }
 
@@ -61,6 +27,18 @@ int check_list_square(PyObject *list) {
     return 0;
 }
 
+int check_node_equal(Node node1, Node node2) {
+    if (node1.value != node2.value) {
+        return 0;
+    } else if (node1.position.x != node2.position.x) {
+        return 0;
+    } else if (node1.position.y != node2.position.y) {
+        return 0;
+    }
+
+    return 1;
+}
+
 double manhattan(Position pos_1, Position pos_2) {
     return fabs(pos_2.x - pos_1.x) + fabs(pos_2.y - pos_1.y);
 }
@@ -74,9 +52,9 @@ ListDimensions get_list_dimensions(PyObject *list) {
     return list_dimensions;
 }
 
-Node *get_neighbors(Node **node_array, ListDimensions node_array_dimensions, Position pos) {
+Node *get_neighbors(Node **node_array, ListDimensions node_array_dimensions, Position pos, int *num_neighbors_ptr) {
     int num_neighbors = 0;
-    Node *neighbors = malloc(4 * sizeof(Node));  // 4 max, realloc to num_neighbors afterwards
+    Node *neighbors = malloc(4 * sizeof(Node));  // 4 max
 
     Position left = {pos.x - 1, pos.y};
     Position right = {pos.x + 1, pos.y};
@@ -96,6 +74,8 @@ Node *get_neighbors(Node **node_array, ListDimensions node_array_dimensions, Pos
             num_neighbors++;
         }
     }
+
+    *num_neighbors_ptr = num_neighbors;
 
     return neighbors;
 }
@@ -124,12 +104,18 @@ Node **list_to_array_nodes(PyObject *list, int *error_code) {
 
         if (!multi_array[i]) {
             *error_code = 5;
+
+            for (Py_ssize_t j = 0; j < i - 1; j++) {
+                free(multi_array[j]);
+            }
             free(multi_array);
+
+            multi_array = NULL;
             return NULL;
         }
         
         for (Py_ssize_t j = 0; j < list_width; j++) {
-            Position temp_pos = {i, j};
+            Position temp_pos = {j, i};
             Node temp_node = {PyLong_AsLong(get_nested_list(list, i, j)), temp_pos};
 
             multi_array[i][j] = temp_node;
@@ -137,4 +123,42 @@ Node **list_to_array_nodes(PyObject *list, int *error_code) {
     }
 
     return multi_array;
+}
+
+PyObject *node_to_tuple(Node node) {
+    PyObject *tuple = Py_BuildValue("(i(nn))", node.value, node.position.x, node.position.y);
+    return tuple;
+}
+
+PyObject *reconstruct_path(PyObject *path_outputted, PyObject *start_tuple, PyObject *end_tuple, int *error_code) {
+    if (!PyDict_CheckExact(path_outputted)) {
+        *error_code = 1;
+    }
+
+    PyObject *reconstructed_dict = Py_BuildValue("{}");
+    PyObject *result = Py_BuildValue("[]");
+    PyObject *path_outputted_items = PyDict_Items(path_outputted);
+
+    for (Py_ssize_t i = 0; i < PyList_Size(path_outputted_items); i++) {
+        PyObject *pair = PyList_GetItem(path_outputted_items, i);
+        PyObject *key = PyTuple_GetItem(pair, 0);
+        PyObject *value = PyTuple_GetItem(pair, 1);
+
+        PyDict_SetItem(reconstructed_dict, PyTuple_GetItem(key, 1), PyTuple_GetItem(value, 1));
+    }
+
+    while (PyDict_Contains(reconstructed_dict, end_tuple)) {
+        PyObject *new_end_tuple = Py_BuildValue("(nn)", PyLong_AsSsize_t(PyTuple_GetItem(end_tuple, 0)), PyLong_AsSsize_t(PyTuple_GetItem(end_tuple, 1)));
+        PyList_Append(result, new_end_tuple);
+
+        end_tuple = PyDict_GetItem(reconstructed_dict, end_tuple);
+    }
+
+    PyList_Append(result, start_tuple);
+    PyList_Reverse(result);
+
+    Py_DECREF(reconstructed_dict);
+    Py_DECREF(path_outputted_items);
+
+    return result;
 }
