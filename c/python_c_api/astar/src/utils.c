@@ -6,9 +6,10 @@
 
 #define get_nested_list(list, i, j) PyList_GetItem(PyList_GetItem(list, i), j)
 
-const int SOLID_TILES = {1};
+const int SOLID_TILES[] = {1};
+const int LEN_SOLID_TILES = sizeof(SOLID_TILES) / sizeof(SOLID_TILES[0]);
 
-int check_list_square(PyObject *list) {
+int check_list(PyObject *list) {
     if (!PyList_CheckExact(list)) {
         return 1;
     }
@@ -19,7 +20,7 @@ int check_list_square(PyObject *list) {
 
     Py_ssize_t ideal_width = PyList_Size(PyList_GetItem(list, 0));
     
-    for (Py_ssize_t i = 0; i < ideal_width; i++) {
+    for (Py_ssize_t i = 0; i < PyList_Size(list); i++) {
         if (PyList_Size(PyList_GetItem(list, i)) != ideal_width) {
             return 3;
         }
@@ -52,9 +53,14 @@ ListDimensions get_list_dimensions(PyObject *list) {
     return list_dimensions;
 }
 
-Node *get_neighbors(Node **node_array, ListDimensions node_array_dimensions, Position pos, int *num_neighbors_ptr) {
+Node *get_neighbors(Node **node_array, ListDimensions node_array_dimensions, Position pos, int *num_neighbors_ptr, int *error_code) {
     int num_neighbors = 0;
     Node *neighbors = malloc(4 * sizeof(Node));  // 4 max
+
+    if (!neighbors) {
+        *error_code = 1;
+        return NULL;
+    }
 
     Position left = {pos.x - 1, pos.y};
     Position right = {pos.x + 1, pos.y};
@@ -69,6 +75,17 @@ Node *get_neighbors(Node **node_array, ListDimensions node_array_dimensions, Pos
             neighbor_idx.y >= 0 && neighbor_idx.y <= node_array_dimensions.height - 1) {
             
             Node neighbor = node_array[neighbor_idx.y][neighbor_idx.x];
+            
+            int is_solid = 0;
+            for (int tile_i = 0; tile_i < LEN_SOLID_TILES; tile_i++) {
+                if (neighbor.value == SOLID_TILES[tile_i]) {
+                    is_solid = 1;
+                    break;
+                }
+            }
+            if (is_solid) {
+                continue;
+            }
             neighbors[num_neighbors] = neighbor;
 
             num_neighbors++;
@@ -81,7 +98,7 @@ Node *get_neighbors(Node **node_array, ListDimensions node_array_dimensions, Pos
 }
 
 Node **list_to_array_nodes(PyObject *list, int *error_code) {
-    int check_result = check_list_square(list);
+    int check_result = check_list(list);
     if (check_result != 0) {
         *error_code = check_result;
         return NULL;

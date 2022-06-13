@@ -24,7 +24,7 @@ typedef struct {
     Node neighbor_node;
 } AlgoQueueInfo;
 
-int check_list_square(PyObject *list);
+int check_list(PyObject *list);
 int check_node_equal(Node node1, Node node2);
 
 double manhattan(Position pos_1, Position pos_2);
@@ -32,7 +32,7 @@ double euclidean(Position pos_1, Position pos_2);
 
 ListDimensions get_list_dimensions(PyObject *list);
 
-Node *get_neighbors(Node **node_array, ListDimensions node_array_dimensions, Position pos, int *num_neighbors);
+Node *get_neighbors(Node **node_array, ListDimensions node_array_dimensions, Position pos, int *num_neighbors, int *error_code);
 Node **list_to_array_nodes(PyObject *list, int *error_code);
 
 PyObject *node_to_tuple(Node node);
