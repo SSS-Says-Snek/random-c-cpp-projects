@@ -1,10 +1,14 @@
 #include "data_structures/list.h"
 #include <stdlib.h>
+#include <stdio.h>
 
-int List_new(List *list, size_t sizeof_type) {  // Probably will make it return List* w/ malloc instead of... yeah
+List *List_new(size_t sizeof_type) {
+    List *list = malloc(sizeof(List));
+
+
     void **elems = malloc(sizeof_type);
     if (!elems) {
-        return 1;
+        return NULL;
     }
 
     list->type_size = sizeof_type;
@@ -12,7 +16,7 @@ int List_new(List *list, size_t sizeof_type) {  // Probably will make it return 
     list->alloc_size = 1;
     list->elems = elems;
 
-    return 0;
+    return list;
 }
 
 int List_append(List *list, void *element) {
@@ -44,6 +48,8 @@ void *List_get(List *list, size_t index) {
 
 void List_free(List *list) {
     free(list->elems);
-
     list->elems = NULL;
+
+    free(list);
+    list = NULL;
 }

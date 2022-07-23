@@ -7,7 +7,7 @@ typedef struct {
     void **elems;
 } List;
 
-int List_new(List *list, size_t sizeof_type);
+List *List_new(size_t sizeof_type);
 int List_append(List *list, void *elem);
 void *List_get(List *list, size_t index);
 void List_free(List *list);
