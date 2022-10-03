@@ -29,7 +29,7 @@ int List_append(List *list, void *element) {
     if (list->size == list->alloc_size) {
         list->alloc_size *= 2; // alloc factor
 
-        list->elems = realloc(list->elems, list->alloc_size * sizeof(*(list->elems)));
+        list->elems = realloc(list->elems, list->alloc_size * sizeof(void *));
 
         if (!list->elems) {
             return 1;
